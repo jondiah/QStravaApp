@@ -17,11 +17,11 @@ public:
 
     QNetworkAccessManager* networkAccessManager();
 
-    void requestActivities();
+    void requestAllActivities(bool force = false);
     void requestAthlete();
 
 signals:
-    serverFailed(const QString msg);
+    void serverFailed(const QString msg);
 
 public slots:
 
@@ -30,6 +30,8 @@ private slots:
     void onFinishedRequestAthlete();
 
 private:
+    void requestActivities(int page = 1);
+
     QString mActivitiesName;
     QString mAthleteName;
 

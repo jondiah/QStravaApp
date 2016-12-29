@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
     DataServer dServer;
     JsonParser jsParser;
 
-    dServer.requestActivities();
+    //dServer.requestAllActivities(true);
     QList<QObject*> activities;
     jsParser.readActivitiesFile(activities);
 
@@ -23,13 +23,14 @@ int main(int argc, char *argv[])
     jsParser.readAthleteFile(data2);
 
     // QML Backend
+    /*
     QQmlApplicationEngine engine;
 
     qmlRegisterType<Activity>();
     engine.rootContext()->setContextProperty("activityModel", QVariant::fromValue(activities));
 
     engine.load(QUrl(QStringLiteral("qrc:/main.qml")));
-
+    */
 
     return app.exec();
 }

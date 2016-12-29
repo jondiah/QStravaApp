@@ -11,6 +11,7 @@ QString clientSecret =      "";
 QByteArray accessToken =    "";
 
 const QString uriActivities = "https://www.strava.com/api/v3/activities";
+const QString uriAthletes = "https://www.strava.com/api/v3/athlete";
 
 DataServer::DataServer(QObject *parent) : QObject(parent)
 {
@@ -68,22 +69,33 @@ QNetworkAccessManager* DataServer::networkAccessManager()
     if(mNetworkAccessManager->networkAccessible() != QNetworkAccessManager::Accessible) {
         if(mNetworkAccessManager->networkAccessible() == QNetworkAccessManager::NotAccessible) {
             qDebug() << "NO ACCESS TO NETWORK";
-            emit serverFailed(tr("No Network Access"));
         } else {
             qDebug() << "NO ACCESS: The network accessibility cannot be determined.";
-            emit serverFailed(tr("No Network Access"));
         }
     }
     return mNetworkAccessManager;
 }
 
-void DataServer::requestActivities()
+void DataServer::requestAllActivities(bool force)
+{
+    QFile activityFile(mActivitiesName);
+    if(!force) {
+        if (activityFile.open(QIODevice::ReadOnly)) {
+            qWarning() << "Activity file already exits, cancel request";
+            activityFile.close();
+            return;
+        }
+    }
+    requestActivities(1);
+}
+
+void DataServer::requestActivities(int page)
 {
     QUrl url(uriActivities);
     QUrlQuery query;
 
     query.addQueryItem("per_page", "200");
-    query.addQueryItem("page", "0");
+    query.addQueryItem("page", QString::number(page));
 
     url.setQuery(query.query());
 
@@ -92,7 +104,10 @@ void DataServer::requestActivities()
     request.setRawHeader("Authorization", token);
 
     QNetworkReply* reply = networkAccessManager()->get(request);
-    bool connectResult = connect(reply, SIGNAL(finished()), this, SLOT(onFinishedRequestActivites()));
+    bool connectResult = connect(reply,
+                                 SIGNAL(finished()),
+                                 this,
+                                 SLOT(onFinishedRequestActivites()));
     Q_ASSERT(connectResult);
     Q_UNUSED(connectResult);
 }
@@ -101,35 +116,50 @@ void DataServer::onFinishedRequestActivites()
 {
     QNetworkReply* reply = qobject_cast<QNetworkReply*>(sender());
     if(!reply) {
-        qWarning() << "Activites REPLY is NULL";
+        qWarning() << "Activites: Reply is NULL";
         return;
     }
+    qDebug() << reply->request().url();
     const int available = reply->bytesAvailable();
-    if(available == 0) {
-        qWarning() << "Activites: No Bytes received";
+    if(available <= 2) {
+        qWarning() << "Activites: No activities received";
         return;
     }
     int httpStatusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    qDebug() << "Activites HTTP STATUS: " << httpStatusCode << " Bytes: " << available;
     if(httpStatusCode != 200) {
-        qDebug() << "Activites Status Code not 200. No sucess getting Activites from Server. Got HTTP Status " +QString::number(httpStatusCode);
+        qWarning() << "Activites Status Code not 200. No sucess getting Activites from Server. Got HTTP Status " + QString::number(httpStatusCode);
         return;
     }
 
-    QFile saveFile(mActivitiesName);
-    if (!saveFile.open(QIODevice::WriteOnly)) {
-        qWarning() << "Couldn't open file to write " << mActivitiesName;
-        emit serverFailed(tr("Activites Data cannot be written"));
+    QUrlQuery sentQuery;
+
+    if(reply->request().url().hasQuery()) {
+        sentQuery.setQuery(reply->request().url().query());
+        qDebug() << "reply->request().url(): " << sentQuery.query();
+    } else {
+        qWarning() << "The request didn't have any query, strange!!!";
         return;
     }
-    qint64 bytesWritten = saveFile.write(reply->readAll());
-    saveFile.close();
+
+    QFile activityFile(mActivitiesName);
+    if (!activityFile.open(QIODevice::ReadWrite)) {
+        qWarning() << "Couldn't open file to write " << mActivitiesName;
+        return;
+    }
+
+    activityFile.seek(activityFile.size());
+    qint64 bytesWritten = activityFile.write(reply->readAll());
+    activityFile.close();
     qDebug() << "Activites Data Bytes written: " << bytesWritten << " to: " << mActivitiesName;
+
+    // Make a new request for the next page
+    requestActivities(sentQuery.queryItemValue("page").toInt() + 1);
 }
 
 void DataServer::requestAthlete()
 {
-    QString uri = "https://www.strava.com/api/v3/athlete";
+    QString uri(uriAthletes);
+
     QByteArray token = "Bearer " + accessToken;
     QNetworkRequest request(uri);
     request.setRawHeader("Authorization", token);
