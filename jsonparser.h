@@ -9,7 +9,7 @@ class JsonParser
 public:
     JsonParser();
 
-    bool readActivitiesFile(QList<QObject *> &activityList, QString filePath = "activities.json");
+    bool readActivitiesFile(QList<QObject *> &activityList, QString filePath = "activities");
     bool readAthleteFile(QVariantMap &athletes, QString filePath = "athlete.json");
 };
 

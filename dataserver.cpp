@@ -17,7 +17,7 @@ DataServer::DataServer(QObject *parent) : QObject(parent)
 {
     mNetworkAccessManager = NULL;
     m_stravaCredentialsFetched = setupStravaCredentials();
-    mActivitiesName = "activities.json";
+    mActivitiesName = "activities";
     mAthleteName = "athlete.json";
 }
 
@@ -78,6 +78,7 @@ QNetworkAccessManager* DataServer::networkAccessManager()
 
 void DataServer::requestAllActivities(bool force)
 {
+    /*
     QFile activityFile(mActivitiesName);
     if(!force) {
         if (activityFile.open(QIODevice::ReadOnly)) {
@@ -86,6 +87,7 @@ void DataServer::requestAllActivities(bool force)
             return;
         }
     }
+    */
     requestActivities(1);
 }
 
@@ -141,16 +143,16 @@ void DataServer::onFinishedRequestActivites()
         return;
     }
 
-    QFile activityFile(mActivitiesName);
-    if (!activityFile.open(QIODevice::ReadWrite)) {
-        qWarning() << "Couldn't open file to write " << mActivitiesName;
+    QFile activityFile(mActivitiesName+sentQuery.queryItemValue("page")+".json");
+    if (!activityFile.open(QIODevice::ReadWrite | QIODevice::Text)) {
+        qWarning() << "Couldn't open file to write " << mActivitiesName+sentQuery.queryItemValue("page")+".json";
         return;
     }
 
-    activityFile.seek(activityFile.size());
+    //activityFile.seek(activityFile.size());
     qint64 bytesWritten = activityFile.write(reply->readAll());
     activityFile.close();
-    qDebug() << "Activites Data Bytes written: " << bytesWritten << " to: " << mActivitiesName;
+    qDebug() << "Activites Data Bytes written: " << bytesWritten << " to: " << mActivitiesName+sentQuery.queryItemValue("page")+".json";
 
     // Make a new request for the next page
     requestActivities(sentQuery.queryItemValue("page").toInt() + 1);
